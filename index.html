@@ -1,0 +1,78 @@
+<!--
+OfferRadar V0 前端 —— 一个页面文件搞定：长相(HTML) + 行为(JS)
+数据流：textarea输入 --fetch--> POST /analyze --> 后端JSON --> 渲染进页面
+注意：本页面由 FastAPI 自己托管（访问 http://127.0.0.1:8001/ ），
+     和后端同源，所以 fetch 不用处理跨域问题。
+-->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>OfferRadar · JD 雷达</title>
+  <style>
+    /* 丑是丑了点，能跑就行——永远不要在 CSS 上浪费一天 */
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
+    textarea { width: 100%; height: 180px; font-size: 14px; }
+    button { padding: 10px 24px; font-size: 15px; cursor: pointer; margin-top: 8px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; margin-top: 14px; }
+    .tag { display: inline-block; background: #eef6ff; border: 1px solid #bcd; border-radius: 999px;
+           padding: 2px 10px; margin: 3px; font-size: 13px; }
+    #result { display: none; }
+    h1 { font-size: 22px; }
+  </style>
+</head>
+<body>
+  <h1>🎯 OfferRadar · JD 雷达</h1>
+  <textarea id="jd" placeholder="把招聘 JD 原文粘进来……"></textarea>
+  <button id="go" onclick="analyze()">分析</button>
+
+  <div id="result" class="card">
+    <h2 id="position"></h2>
+    <p><b>一句话概括：</b><span id="summary"></span></p>
+    <p><b>学历：</b><span id="education"></span>　<b>经验：</b><span id="experience"></span>　<b>薪资：</b><span id="salary"></span></p>
+    <p><b>职责</b></p><div id="resp"></div>
+    <p><b>技能</b></p><div id="skills"></div>
+  </div>
+
+  <script>
+  // 前端三板斧之一：fetch —— 向自家后端发 POST
+  async function analyze() {
+    const jdText = document.getElementById("jd").value;   // ① 取输入
+    const btn = document.getElementById("go");
+    btn.disabled = true; btn.textContent = "分析中…";      // 体验细节：按钮防连点
+
+    try {
+      const res = await fetch("/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jd_text: jdText }),  // ← 还记得昨天的 422 吗？
+                                                    //   stringify 自动转义一切引号，病根拔除
+      });
+      const data = await res.json();                // ② 响应体 → JS 对象
+
+      if (data.error) { alert("后端说：" + data.error); return; }  // ③ 快速失败也要接得住
+
+      // ④ 渲染：把 JSON 各字段填进页面的"坑位"
+      document.getElementById("position").textContent  = data.position ?? "（未识别）";
+      document.getElementById("summary").textContent   = data.summary;
+      document.getElementById("education").textContent = data.education ?? "—";
+      document.getElementById("experience").textContent = data.experience ?? "—";
+      document.getElementById("salary").textContent    = data.salary ?? "—";
+
+      // 列表字段：每个元素画一个圆角小标签
+      var tags = function(arr) {
+        return arr.map(function(x) { return '<span class="tag">' + x + '</span>'; }).join("");
+      };
+      document.getElementById("resp").innerHTML   = tags(data.responsibilities);
+      document.getElementById("skills").innerHTML = tags(data.skills);
+
+      document.getElementById("result").style.display = "block";  // 亮出卡片
+    } catch (e) {
+      alert("请求失败：后端是不是没开？" + e);      // 网络层错误（服务没启动等）
+    } finally {
+      btn.disabled = false; btn.textContent = "分析";
+    }
+  }
+  </script>
+</body>
+</html>
