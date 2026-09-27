@@ -19,12 +19,25 @@ OfferRadar V0 前端 —— 一个页面文件搞定：长相(HTML) + 行为(JS)
            padding: 2px 10px; margin: 3px; font-size: 13px; }
     #result { display: none; }
     h1 { font-size: 22px; }
+    .tag-ok  { display:inline-block; background:#e8f7e8; border:1px solid #b7dfb9;
+           border-radius:999px; padding:2px 10px; margin:3px; font-size:13px; }
+    .tag-bad { display:inline-block; background:#fdecec; border:1px solid #eab7b7;
+           border-radius:999px; padding:2px 10px; margin:3px; font-size:13px; }
   </style>
 </head>
 <body>
   <h1>🎯 OfferRadar · JD 雷达</h1>
   <textarea id="jd" placeholder="把招聘 JD 原文粘进来……"></textarea>
   <button id="go" onclick="analyze()">分析</button>
+  <textarea id="resume" placeholder="把你的真实简历粘进来……"></textarea>
+  <button id="goMatch" onclick="matchScore()">🎯 匹配打分</button>
+
+  <div id="matchResult" class="card" style="display:none">
+  <h2>匹配度：<span id="score"></span> / 100</h2>
+  <p id="mSummary"></p>
+  <p><b>✅ 已满足</b></p><div id="matched"></div>
+  <p><b>❌ 缺口（该补什么，看懂没）</b></p><div id="missing"></div>
+  </div>
 
   <div id="result" class="card">
     <h2 id="position"></h2>
@@ -40,7 +53,6 @@ OfferRadar V0 前端 —— 一个页面文件搞定：长相(HTML) + 行为(JS)
     const jdText = document.getElementById("jd").value;   // ① 取输入
     const btn = document.getElementById("go");
     btn.disabled = true; btn.textContent = "分析中…";      // 体验细节：按钮防连点
-
     try {
       const res = await fetch("/analyze", {
         method: "POST",
@@ -73,6 +85,27 @@ OfferRadar V0 前端 —— 一个页面文件搞定：长相(HTML) + 行为(JS)
       btn.disabled = false; btn.textContent = "分析";
     }
   }
+  async function matchScore() {
+  const jd     = document.getElementById("jd").value;      // 复用同一个 JD 框
+  const resume = document.getElementById("resume").value;
+  try {
+    const res  = await fetch("/match", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jd_text: jd, resume_text: resume }),  // ← 转义？不存在的
+    });
+    const data = await res.json();
+    if (data.error) { alert("后端说：" + data.error); return; }
+
+    document.getElementById("score").textContent    = data.match_score;
+    document.getElementById("mSummary").textContent = data.summary;
+    const ok  = data.matched_requirements.map(x => '<span class="tag-ok">'  + x + '</span>').join("");
+    const bad = data.missing_requirements.map(x => '<span class="tag-bad">' + x + '</span>').join("");
+    document.getElementById("matched").innerHTML = ok  || "（无）";
+    document.getElementById("missing").innerHTML = bad || "（无——真没缺口还是模型偷懒？盯紧这个）";
+    document.getElementById("matchResult").style.display = "block";
+  } catch (e) { alert("请求失败，后端开了吗？" + e); }
+}
   </script>
 </body>
 </html>
